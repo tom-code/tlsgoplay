@@ -5,9 +5,6 @@ import (
 	"net"
 )
 
-type TlsCertSubject struct {
-	CommonName string
-}
 
 type TlsCertRequest struct {
 	Subject       pkix.Name

@@ -176,16 +176,22 @@ func create_cert_from_csr(csr TlsCertRequest) x509.Certificate {
 	return out
 }
 
-func sign_json_csr(csr_name string, pubkey_name string, out_name string) {
+func sign_json_csr(csr_name string, pubkey_name string, out_name string, ca_cert_name string) {
 	csr := load_csr_from_json(csr_name)
 	template := create_cert_from_csr(csr)
-	ca_cert := load_cert("ca-cert.pem")
+	var ca_cert *x509.Certificate
+	if len(ca_cert_name) > 0 {
+		ca_cert = load_cert(ca_cert_name)
+	}
 	ca_key := load_key("ca-private.pem")
 	key := load_public_key(pubkey_name)
 	template.SerialNumber = big.NewInt(100)
 	template.NotBefore = time.Now()
 	if template.NotAfter.IsZero() {
 		template.NotAfter = time.Now().Add(time.Hour * 24 * 700)
+	}
+	if ca_cert == nil {
+		ca_cert = &template
 	}
 	cert_bytes, err := x509.CreateCertificate(rand.Reader, &template, ca_cert, key, ca_key)
 	if err != nil {
@@ -195,7 +201,7 @@ func sign_json_csr(csr_name string, pubkey_name string, out_name string) {
 }
 
 func test() {
-	sign_json_csr("test.csr.json", "server-public.pem", "test1")
+	//sign_json_csr("test.csr.json", "server-public.pem", "test1")
 }
 
 func keygen() {

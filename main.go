@@ -51,9 +51,11 @@ func main() {
 		Short: "create certificate from json csr",
 		Args: cobra.MinimumNArgs(3),
 		Run: func(cmd *cobra.Command, args []string) {
-			sign_json_csr(args[0], args[1], args[2])
+			cert, _ := cmd.Flags().GetString("ca-certificate")
+			sign_json_csr(args[0], args[1], args[2], cert)
 		},
 	}
+	signjCmd.Flags().StringP("ca-certificate", "c", "ca-cert.pem", "PEM file with ca certificate")
 	rootCmd.AddCommand(signjCmd)
 
 	var genKeyCmd = &cobra.Command {

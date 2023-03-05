@@ -1,0 +1,16 @@
+{
+  "Subject": {
+   "CommonName": "mm.local"
+  },
+  "BasicConstraintsValid": true,
+  "IsCA": false,
+  "DNSNames": [
+   "mm.local"
+  ],
+  "IPAddresses": [
+   "1.2.3.4",
+   "::1"
+  ],
+  "NotAfterHours": 24
+}
+
