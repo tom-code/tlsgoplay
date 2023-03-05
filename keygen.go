@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"io/ioutil"
-	"log"
 	"math/big"
 	"net"
 	"time"
@@ -136,6 +135,18 @@ func load_key(file string) *rsa.PrivateKey {
 	}
 	return key
 }
+func load_public_key(file string) any {
+	data, err := ioutil.ReadFile(file)
+	if err != nil {
+		panic(err)
+	}
+	pem_block, _ := pem.Decode(data)
+	key, err := x509.ParsePKIXPublicKey(pem_block.Bytes)
+	if err != nil {
+		panic(err)
+	}
+	return key
+}
 func load_csr_from_json(file string) x509.CertificateRequest {
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -156,35 +167,25 @@ func create_cert_from_csr(csr x509.CertificateRequest) x509.Certificate {
 	//out.IsCA = csr.IsCA
 	return out
 }
-func sign_json_csr(csr_name string, out_name string) {
+func sign_json_csr(csr_name string, pubkey_name string, out_name string) {
 	csr := load_csr_from_json(csr_name)
 	template := create_cert_from_csr(csr)
 	ca_cert := load_cert("ca-cert.pem")
 	ca_key := load_key("ca-private.pem")
-	key := load_key("server-private.pem")
-	log.Println(template)
-	log.Println(ca_cert)
-	log.Println(ca_key)
+	key := load_public_key(pubkey_name)
 	template.SerialNumber = big.NewInt(100)
 	template.NotBefore = time.Now()
 	template.NotAfter = time.Now().Add(time.Hour*100)
-	csr.PublicKey = key.PublicKey
-	d, err := json.Marshal(csr)
+	csr.PublicKey = key
+	cert_bytes, err := x509.CreateCertificate(rand.Reader, &template, ca_cert, key, ca_key)
 	if err != nil {
 		panic(err)
 	}
-	log.Println("-----------------------")
-	log.Println(string(d))
-	cert_bytes, err := x509.CreateCertificate(rand.Reader, &template, ca_cert, &key.PublicKey, ca_key)
-	if err != nil {
-		panic(err)
-	}
-	log.Println(cert_bytes)
-	store_cert("test1", cert_bytes)
+	store_cert(out_name, cert_bytes)
 }
 
 func test() {
-	sign_json_csr("test.csr.json", "")
+	sign_json_csr("test.csr.json", "server-public.pem", "test1")
 }
 
 func keygen() {
@@ -199,8 +200,8 @@ func keygen() {
 		//DNSNames: []string{"ca.com"},
 		NotBefore: time.Now(),
 		NotAfter:  time.Now().Add(time.Hour * 24 * 700),	
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		IsCA: true,
+		KeyUsage:  x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		IsCA:      true,
 		BasicConstraintsValid: true,
 	}
 	ca_cert_bytes, err := x509.CreateCertificate(rand.Reader, &ca_template, &ca_template, &ca_key.PublicKey, ca_key)
@@ -214,10 +215,10 @@ func keygen() {
 		Subject: pkix.Name {
 		  	CommonName: "mm.local",
 		},
-		DNSNames: []string{"mm.local"},
+		DNSNames:     []string{"mm.local"},
 		IPAddresses:  []net.IP{net.IPv4(1,2,3,4), net.IPv6loopback},
-		NotBefore: time.Now(),
-		NotAfter:  time.Now().Add(time.Hour * 24 * 700),
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(time.Hour * 24 * 700),
 		SubjectKeyId: []byte{1, 2, 3, 4, 6},
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:     x509.KeyUsageDigitalSignature,
@@ -231,9 +232,9 @@ func keygen() {
 		Subject: pkix.Name {
 		  	CommonName: "client.mm.local",
 		},
-		DNSNames: []string{"mm.local"},
-		NotBefore: time.Now(),
-		NotAfter:  time.Now().Add(time.Hour * 24 * 700),
+		DNSNames:     []string{"mm.local"},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(time.Hour * 24 * 700),
 		SubjectKeyId: []byte{1, 2, 3, 4, 6},
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:     x509.KeyUsageDigitalSignature,

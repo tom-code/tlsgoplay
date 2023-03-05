@@ -46,6 +46,16 @@ func main() {
 	}
 	rootCmd.AddCommand(keygenCmd)
 
+	var signjCmd = &cobra.Command {
+		Use:   "create-cert [csr] [public-key] [out-name]",
+		Short: "create certificate from json csr",
+		Args: cobra.MinimumNArgs(3),
+		Run: func(cmd *cobra.Command, args []string) {
+			sign_json_csr(args[0], args[1], args[2])
+		},
+	}
+	rootCmd.AddCommand(signjCmd)
+
 	var testCmd = &cobra.Command {
 		Use:   "test",
 		Short: "develtest",
