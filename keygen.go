@@ -8,8 +8,10 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"io/ioutil"
+	"log"
 	"math/big"
 	"net"
 	"time"
@@ -110,8 +112,82 @@ func generate_and_store_key_ed25519(name string) (*ed25519.PrivateKey, *ed25519.
 	return &priv, &pub
 }
 
-func keygen() {
+func load_cert(file string) *x509.Certificate {
+	data, err := ioutil.ReadFile(file)
+	if err != nil {
+		panic(err)
+	}
+	pem_block, _ := pem.Decode(data)
+	cer, err := x509.ParseCertificate(pem_block.Bytes)
+	if err != nil {
+		panic(err)
+	}
+	return cer
+}
+func load_key(file string) *rsa.PrivateKey {
+	data, err := ioutil.ReadFile(file)
+	if err != nil {
+		panic(err)
+	}
+	pem_block, _ := pem.Decode(data)
+	key, err := x509.ParsePKCS1PrivateKey(pem_block.Bytes)
+	if err != nil {
+		panic(err)
+	}
+	return key
+}
+func load_csr_from_json(file string) x509.CertificateRequest {
+	data, err := ioutil.ReadFile(file)
+	if err != nil {
+		panic(err)
+	}
+	var req x509.CertificateRequest
+	err = json.Unmarshal(data, &req)
+	if err != nil {
+		panic(err)
+	}
+	return req
+}
+func create_cert_from_csr(csr x509.CertificateRequest) x509.Certificate {
+	var out x509.Certificate
+	out.Subject = csr.Subject
+	out.DNSNames = csr.DNSNames
+	out.IPAddresses = csr.IPAddresses
+	//out.IsCA = csr.IsCA
+	return out
+}
+func sign_json_csr(csr_name string, out_name string) {
+	csr := load_csr_from_json(csr_name)
+	template := create_cert_from_csr(csr)
+	ca_cert := load_cert("ca-cert.pem")
+	ca_key := load_key("ca-private.pem")
+	key := load_key("server-private.pem")
+	log.Println(template)
+	log.Println(ca_cert)
+	log.Println(ca_key)
+	template.SerialNumber = big.NewInt(100)
+	template.NotBefore = time.Now()
+	template.NotAfter = time.Now().Add(time.Hour*100)
+	csr.PublicKey = key.PublicKey
+	d, err := json.Marshal(csr)
+	if err != nil {
+		panic(err)
+	}
+	log.Println("-----------------------")
+	log.Println(string(d))
+	cert_bytes, err := x509.CreateCertificate(rand.Reader, &template, ca_cert, &key.PublicKey, ca_key)
+	if err != nil {
+		panic(err)
+	}
+	log.Println(cert_bytes)
+	store_cert("test1", cert_bytes)
+}
 
+func test() {
+	sign_json_csr("test.csr.json", "")
+}
+
+func keygen() {
 	ca_key := generate_and_store_key("ca")
 	server_key := generate_and_store_key("server")
 	client_key := generate_and_store_key_ecdsa("client")
@@ -146,6 +222,7 @@ func keygen() {
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:     x509.KeyUsageDigitalSignature,
 	}
+
 	cert_bytes, err := x509.CreateCertificate(rand.Reader, &cert_template, &ca_template, &server_key.PublicKey, ca_key)
 	store_cert("server", cert_bytes)
 

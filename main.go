@@ -46,5 +46,14 @@ func main() {
 	}
 	rootCmd.AddCommand(keygenCmd)
 
+	var testCmd = &cobra.Command {
+		Use:   "test",
+		Short: "develtest",
+		Run: func(cmd *cobra.Command, args []string) {
+			test()
+		},
+	}
+	rootCmd.AddCommand(testCmd)
+
 	rootCmd.Execute()
 }
