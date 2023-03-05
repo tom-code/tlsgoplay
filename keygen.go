@@ -123,6 +123,7 @@ func load_cert(file string) *x509.Certificate {
 	}
 	return cer
 }
+
 func load_key(file string) *rsa.PrivateKey {
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -135,6 +136,7 @@ func load_key(file string) *rsa.PrivateKey {
 	}
 	return key
 }
+
 func load_public_key(file string) any {
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -147,26 +149,33 @@ func load_public_key(file string) any {
 	}
 	return key
 }
-func load_csr_from_json(file string) x509.CertificateRequest {
+
+func load_csr_from_json(file string) TlsCertRequest {
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		panic(err)
 	}
-	var req x509.CertificateRequest
+	var req TlsCertRequest
 	err = json.Unmarshal(data, &req)
 	if err != nil {
 		panic(err)
 	}
 	return req
 }
-func create_cert_from_csr(csr x509.CertificateRequest) x509.Certificate {
+
+func create_cert_from_csr(csr TlsCertRequest) x509.Certificate {
 	var out x509.Certificate
 	out.Subject = csr.Subject
 	out.DNSNames = csr.DNSNames
 	out.IPAddresses = csr.IPAddresses
-	//out.IsCA = csr.IsCA
+	out.IsCA = csr.IsCA
+	out.BasicConstraintsValid = csr.BasicConstraintsValid
+	if csr.NotAfterHours != 0 {
+		out.NotAfter = time.Now().Add(time.Hour * time.Duration(csr.NotAfterHours))
+	}
 	return out
 }
+
 func sign_json_csr(csr_name string, pubkey_name string, out_name string) {
 	csr := load_csr_from_json(csr_name)
 	template := create_cert_from_csr(csr)
@@ -175,8 +184,9 @@ func sign_json_csr(csr_name string, pubkey_name string, out_name string) {
 	key := load_public_key(pubkey_name)
 	template.SerialNumber = big.NewInt(100)
 	template.NotBefore = time.Now()
-	template.NotAfter = time.Now().Add(time.Hour*100)
-	csr.PublicKey = key
+	if template.NotAfter.IsZero() {
+		template.NotAfter = time.Now().Add(time.Hour * 24 * 700)
+	}
 	cert_bytes, err := x509.CreateCertificate(rand.Reader, &template, ca_cert, key, ca_key)
 	if err != nil {
 		panic(err)

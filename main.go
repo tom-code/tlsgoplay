@@ -56,6 +56,16 @@ func main() {
 	}
 	rootCmd.AddCommand(signjCmd)
 
+	var genKeyCmd = &cobra.Command {
+		Use:   "gen-key [name]",
+		Short: "generate key",
+		Args: cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			generate_and_store_key(args[0])
+		},
+	}
+	rootCmd.AddCommand(genKeyCmd)
+
 	var testCmd = &cobra.Command {
 		Use:   "test",
 		Short: "develtest",
